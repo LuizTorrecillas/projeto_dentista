@@ -107,3 +107,68 @@ def buscar_dentista_por_cro(cro):
     resultado = cursor.fetchone()
     conexao.close()
     return resultado
+
+
+# CONSULTA
+
+def dentista_disponivel(dentista_id, data_hora):
+    conexao = criar_conexao()
+    cursor = conexao.cursor()
+
+    cursor.execute(
+        """
+        SELECT * FROM consultas
+        WHERE dentista_id = ?
+        AND data_hora = ?
+        AND estado != 'Cancelada'
+        """,
+        (dentista_id, data_hora)
+    )
+    resultado = cursor.fetchone()
+    conexao.close()
+    return resultado is None
+
+
+def inserir_consulta(data_hora, motivo, paciente_id, dentista_id):
+    if not dentista_disponivel(dentista_id, data_hora):
+        raise ValueError("Dentista já possui consulta marcada nesse horário.")
+
+    conexao = criar_conexao()
+    cursor = conexao.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO consultas (data_hora, motivo, paciente_id, dentista_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (data_hora, motivo, paciente_id, dentista_id)
+    )
+    conexao.commit()
+    consulta_id = cursor.lastrowid
+    conexao.close()
+    return consulta_id
+
+
+def buscar_consultas_por_data(data):
+    conexao = criar_conexao()
+    cursor = conexao.cursor()
+
+    cursor.execute(
+        "SELECT * FROM consultas WHERE data_hora LIKE ?",
+        (f"{data}%",)
+    )
+    resultado = cursor.fetchall()
+    conexao.close()
+    return resultado
+
+
+def cancelar_consulta(consulta_id):
+    conexao = criar_conexao()
+    cursor = conexao.cursor()
+    
+    cursor.execute(
+        "UPDATE consultas SET estado = 'Cancelada' WHERE id = ?",
+        (consulta_id,)
+    )
+    conexao.commit()
+    conexao.close()

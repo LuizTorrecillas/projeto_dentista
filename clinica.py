@@ -9,12 +9,16 @@ class EstadoConsulta(Enum):
 
 
 class Paciente:
-    def __init__(self, nome, cpf, telefone):
+    def __init__(self, nome, cpf, telefone, id=None):
+        self._id = id
         self._nome = nome.title()
         self._cpf = cpf
         self._telefone = telefone
         self._alergias = []
 
+    @property
+    def id(self):
+        return self._id
     @property
     def nome(self):
         return self._nome

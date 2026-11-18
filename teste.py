@@ -1,15 +1,17 @@
-from banco import inserir_dentista, buscar_dentista_por_cro, criar_tabelas, inserir_paciente, buscar_paciente_por_cpf
+from banco import inserir_paciente, inserir_dentista
+from banco import inserir_consulta, buscar_consultas_por_data, cancelar_consulta
 
-criar_tabelas()
+id_paciente = inserir_paciente("Maria Silva", "99988877766", "61988887777")
+id_dentista = inserir_dentista("João Pereira", "CRO-DF-99999", "Ortodontia")
 
-# --- paciente (já testado antes) ---
-# id_paciente = inserir_paciente("Maria Silva", "12345678900", "61999999999")
-# paciente = buscar_paciente_por_cpf("12345678900")
-# print("Paciente encontrado:", paciente)
+id_consulta = inserir_consulta("2026-11-20 14:30:00", "Limpeza", id_paciente, id_dentista)
+print("Consulta inserida com id:", id_consulta)
 
-# --- dentista ---
-id_dentista = inserir_dentista("João Pereira", "CRO-DF-12345", "Ortodontia")
-print("Dentista inserido com id:", id_dentista)
+# tentar marcar outra consulta no MESMO horário, com o MESMO dentista → deve dar erro
+try:
+    inserir_consulta("2026-11-20 14:30:00", "Canal", id_paciente, id_dentista)
+except ValueError as erro:
+    print("Erro esperado:", erro)
 
-dentista = buscar_dentista_por_cro("CRO-DF-12345")
-print("Dentista encontrado:", dentista)
+consultas = buscar_consultas_por_data("2026-11-20")
+print("Consultas do dia:", consultas)
