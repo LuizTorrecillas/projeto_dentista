@@ -79,7 +79,15 @@ def buscar_paciente_por_cpf(cpf):
     )
     resultado = cursor.fetchone()
     conexao.close()
-    return resultado    
+    return resultado 
+
+def buscar_paciente_por_id(paciente_id):
+    conexao = criar_conexao()
+    cursor = conexao.cursor()
+    cursor.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,))
+    resultado = cursor.fetchone()
+    conexao.close()
+    return resultado
 
 
 #DENTISTA
@@ -104,6 +112,14 @@ def buscar_dentista_por_cro(cro):
     cursor.execute(
         "SELECT * FROM dentistas WHERE cro = ?", (cro,)
     )
+    resultado = cursor.fetchone()
+    conexao.close()
+    return resultado
+
+def buscar_dentista_por_id(dentista_id):
+    conexao = criar_conexao()
+    cursor = conexao.cursor()
+    cursor.execute("SELECT * FROM dentistas WHERE id = ?", (dentista_id,))
     resultado = cursor.fetchone()
     conexao.close()
     return resultado
@@ -165,7 +181,7 @@ def buscar_consultas_por_data(data):
 def cancelar_consulta(consulta_id):
     conexao = criar_conexao()
     cursor = conexao.cursor()
-    
+
     cursor.execute(
         "UPDATE consultas SET estado = 'Cancelada' WHERE id = ?",
         (consulta_id,)

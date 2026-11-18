@@ -1,5 +1,7 @@
 from enum import Enum
 from datetime import datetime
+from banco import inserir_consulta, buscar_consultas_por_data, cancelar_consulta
+from banco import buscar_paciente_por_id, buscar_dentista_por_id  
 
 
 class EstadoConsulta(Enum):
@@ -40,11 +42,15 @@ class Paciente:
 
 
 class Dentista:
-    def __init__(self, nome, cro, especialidade):
+    def __init__(self, nome, cro, especialidade, id=None):
+        self._id = id
         self._nome = nome.title()
         self._cro = cro
         self._especialidade = especialidade
 
+    @property
+    def id(self):
+        return self._id
     @property
     def nome(self):
         return self._nome
@@ -67,13 +73,17 @@ class Dentista:
 
 
 class Consulta:
-    def __init__(self, data_hora: datetime, motivo, paciente: Paciente, dentista: Dentista):
+    def __init__(self, data_hora, motivo, paciente, dentista, id=None, estado=EstadoConsulta.AGENDADA):
+        self._id = id
         self._data_hora = data_hora
         self._motivo = motivo
         self._paciente = paciente
         self._dentista = dentista
-        self._estado = EstadoConsulta.AGENDADA
+        self._estado = estado
 
+    @property
+    def id(self):
+        return self._id
     @property
     def data_hora(self):
         return self._data_hora
@@ -97,23 +107,29 @@ class Consulta:
         self._estado = EstadoConsulta.REALIZADA
 
 
+
 class Agenda:
-    def __init__(self):
-        self._consultas = []
-
-    @property
-    def consultas(self):
-        return self._consultas
-
     def agendar(self, data_hora, motivo, paciente, dentista):
-        if not dentista.esta_disponivel(data_hora, self):
-            raise ValueError(f"Dentista {dentista.nome} já tem consulta nesse horário.")
+        from banco import inserir_consulta  
+
         if data_hora < datetime.now():
             raise ValueError("Não é possível agendar em uma data/hora passada.")
 
-        consulta = Consulta(data_hora, motivo, paciente, dentista)
-        self._consultas.append(consulta)
-        return consulta
+        consulta_id = inserir_consulta(
+            data_hora.strftime("%Y-%m-%d %H:%M:%S"),
+            motivo,
+            paciente.id,
+            dentista.id
+        )
+        return Consulta(data_hora, motivo, paciente, dentista, id=consulta_id)
 
     def consultas_do_dia(self, data):
-        return [c for c in self._consultas if c.data_hora.date() == data]
+        from banco import buscar_consultas_por_data
+        from repositorio import consulta_para_objeto
+
+        linhas = buscar_consultas_por_data(data.strftime("%Y-%m-%d"))
+        return [consulta_para_objeto(linha) for linha in linhas]
+
+    def cancelar(self, consulta_id):
+        from banco import cancelar_consulta
+        cancelar_consulta(consulta_id)
