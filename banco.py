@@ -60,14 +60,15 @@ def inserir_paciente(nome, cpf, telefone):
     conexao = criar_conexao()
     cursor = conexao.cursor()
 
-    cursor.execute(
-        "INSERT INTO pacientes (nome, cpf, telefone) VALUES (?, ?, ?)",
-        (nome, cpf, telefone)
-    )
-    conexao.commit()
-    paciente_id = cursor.lastrowid  #cursor.lastrowid da o id que acabou de ser gerado numa tabela com AUTOINCREMENT
-    conexao.close()
-    return paciente_id
+    try:
+        cursor.execute(
+            "INSERT INTO pacientes (nome, cpf, telefone) VALUES (?, ?, ?)",
+            (nome, cpf, telefone)
+        )
+        conexao.commit()
+        return cursor.lastrowid  #cursor.lastrowid da o id que acabou de ser gerado numa tabela com AUTOINCREMENT
+    finally:
+        conexao.close()  # fecha mesmo se o INSERT falhar (ex.: CPF duplicado), senão o banco fica travado
 
 
 def buscar_paciente_por_cpf(cpf):
@@ -96,13 +97,14 @@ def inserir_dentista(nome, cro, especialidade):
     conexao = criar_conexao()
     cursor = conexao.cursor()
 
-    cursor.execute(
-        "INSERT INTO dentistas (nome, cro, especialidade) VALUES (?,?,?)", (nome, cro, especialidade)
-    )
-    conexao.commit()
-    dentista_id = cursor.lastrowid
-    conexao.close()
-    return dentista_id
+    try:
+        cursor.execute(
+            "INSERT INTO dentistas (nome, cro, especialidade) VALUES (?,?,?)", (nome, cro, especialidade)
+        )
+        conexao.commit()
+        return cursor.lastrowid
+    finally:
+        conexao.close()
 
 
 def buscar_dentista_por_cro(cro):
@@ -147,7 +149,7 @@ def dentista_disponivel(dentista_id, data_hora):
 
 def inserir_consulta(data_hora, motivo, paciente_id, dentista_id):
     if not dentista_disponivel(dentista_id, data_hora):
-        raise ValueError("Dentista já possui consulta marcada nesse horário.")
+        raise ConflitoDeHorarioError("Dentista já possui consulta marcada nesse horário.")
 
     conexao = criar_conexao()
     cursor = conexao.cursor()
@@ -164,6 +166,13 @@ def inserir_consulta(data_hora, motivo, paciente_id, dentista_id):
     conexao.close()
     return consulta_id
 
+def buscar_consulta_por_id(consulta_id):
+    conexao = criar_conexao()
+    cursor = conexao.cursor()
+    cursor.execute("SELECT * FROM consultas WHERE id = ?", (consulta_id,))
+    resultado = cursor.fetchone()
+    conexao.close()
+    return resultado
 
 def buscar_consultas_por_data(data):
     conexao = criar_conexao()
@@ -188,3 +197,6 @@ def cancelar_consulta(consulta_id):
     )
     conexao.commit()
     conexao.close()
+
+class ConflitoDeHorarioError(ValueError):
+    pass
