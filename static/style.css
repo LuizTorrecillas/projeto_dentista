@@ -30,7 +30,7 @@ main {
 
 label { display: block; margin-top: 0.75rem; font-weight: 600; }
 
-input {
+input, select {
   width: 100%;
   padding: 0.5rem;
   margin-top: 0.25rem;

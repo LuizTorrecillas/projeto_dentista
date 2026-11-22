@@ -2,7 +2,7 @@ import sqlite3
 from datetime import date, datetime
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from banco import (
     criar_tabelas, inserir_paciente, inserir_dentista,
@@ -35,12 +35,15 @@ class ConsultaIn(BaseModel):
     motivo: str
     paciente_cpf: str
     dentista_cro: str
+    duracao_minutos: int = Field(default=30, ge=10, le=240)
 
 
 def consulta_para_dict(c):
     return {
         "id": c.id,
         "data_hora": c.data_hora,
+        "data_hora_fim": c.data_hora_fim,
+        "duracao_minutos": c.duracao_minutos,
         "motivo": c.motivo,
         "estado": c.estado.value,
         "paciente": c.paciente.nome,
@@ -98,7 +101,9 @@ def agendar_consulta(dados: ConsultaIn):
         raise HTTPException(404, "Dentista não encontrado.")
 
     try:
-        consulta = agenda.agendar(dados.data_hora, dados.motivo, paciente, dentista)
+        consulta = agenda.agendar(
+            dados.data_hora, dados.motivo, paciente, dentista, dados.duracao_minutos
+        )
     except ConflitoDeHorarioError as erro:
         raise HTTPException(409, str(erro))
     except ValueError as erro:          # data no passado

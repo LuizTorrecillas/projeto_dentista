@@ -34,10 +34,9 @@ async function carregarConsultas() {
     const item = document.createElement("li");
     if (c.estado === "Cancelada") item.classList.add("cancelada");
 
-    const hora = new Date(c.data_hora).toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formatarHora = (texto) =>
+      new Date(texto).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const hora = `${formatarHora(c.data_hora)} às ${formatarHora(c.data_hora_fim)}`;
 
     // textContent (e não innerHTML) evita que um nome com HTML seja interpretado como código
     const texto = document.createElement("span");
@@ -75,6 +74,7 @@ form.addEventListener("submit", async (evento) => {
     dentista_cro: document.getElementById("dentista-cro").value,
     data_hora: document.getElementById("data-hora").value,
     motivo: document.getElementById("motivo").value,
+    duracao_minutos: Number(document.getElementById("duracao").value),
   };
 
   const resposta = await fetch("/consultas", {

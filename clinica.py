@@ -1,5 +1,5 @@
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timedelta
 from banco import inserir_consulta, buscar_consultas_por_data, cancelar_consulta
 from banco import buscar_paciente_por_id, buscar_dentista_por_id  
 
@@ -61,25 +61,29 @@ class Dentista:
     def especialidade(self):
         return self._especialidade
 
-    def esta_disponivel(self, data_hora, agenda):
+    def esta_disponivel(self, data_hora, agenda, duracao_minutos=30):
+        fim = data_hora + timedelta(minutes=duracao_minutos)
         for consulta in agenda.consultas:
             if (
                 consulta.dentista == self
-                and consulta.data_hora == data_hora
                 and consulta.estado != EstadoConsulta.CANCELADA
+                and consulta.data_hora < fim
+                and consulta.data_hora_fim > data_hora
             ):
                 return False
         return True
 
 
 class Consulta:
-    def __init__(self, data_hora, motivo, paciente, dentista, id=None, estado=EstadoConsulta.AGENDADA):
+    def __init__(self, data_hora, motivo, paciente, dentista, id=None,
+                 estado=EstadoConsulta.AGENDADA, duracao_minutos=30):
         self._id = id
         self._data_hora = data_hora
         self._motivo = motivo
         self._paciente = paciente
         self._dentista = dentista
         self._estado = estado
+        self._duracao_minutos = duracao_minutos
 
     @property
     def id(self):
@@ -99,6 +103,12 @@ class Consulta:
     @property
     def estado(self):
         return self._estado
+    @property
+    def duracao_minutos(self):
+        return self._duracao_minutos
+    @property
+    def data_hora_fim(self):
+        return self._data_hora + timedelta(minutes=self._duracao_minutos)
 
     def cancelar(self):
         self._estado = EstadoConsulta.CANCELADA
@@ -109,8 +119,16 @@ class Consulta:
 
 
 class Agenda:
-    def agendar(self, data_hora, motivo, paciente, dentista):
-        from banco import inserir_consulta  
+    DURACAO_MIN = 10
+    DURACAO_MAX = 240
+
+    def agendar(self, data_hora, motivo, paciente, dentista, duracao_minutos=30):
+        from banco import inserir_consulta
+
+        if not (self.DURACAO_MIN <= duracao_minutos <= self.DURACAO_MAX):
+            raise ValueError(
+                f"A duração deve estar entre {self.DURACAO_MIN} e {self.DURACAO_MAX} minutos."
+            )
 
         if data_hora < datetime.now():
             raise ValueError("Não é possível agendar em uma data/hora passada.")
@@ -119,9 +137,11 @@ class Agenda:
             data_hora.strftime("%Y-%m-%d %H:%M:%S"),
             motivo,
             paciente.id,
-            dentista.id
+            dentista.id,
+            duracao_minutos
         )
-        return Consulta(data_hora, motivo, paciente, dentista, id=consulta_id)
+        return Consulta(data_hora, motivo, paciente, dentista, id=consulta_id,
+                        duracao_minutos=duracao_minutos)
 
     def consultas_do_dia(self, data):
         from banco import buscar_consultas_por_data

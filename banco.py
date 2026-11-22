@@ -7,6 +7,13 @@ def criar_conexao():
 
 def criar_tabelas():
     conexao = criar_conexao()
+    try:
+        _criar_tabelas(conexao)
+    finally:
+        conexao.close()
+
+
+def _criar_tabelas(conexao):
     cursor = conexao.cursor()
 
     cursor.execute("""
@@ -44,13 +51,21 @@ def criar_tabelas():
             estado TEXT NOT NULL DEFAULT 'Agendada',
             paciente_id INTEGER NOT NULL,
             dentista_id INTEGER NOT NULL,
+            duracao_minutos INTEGER NOT NULL DEFAULT 30,
             FOREIGN KEY (paciente_id) REFERENCES pacientes(id),
             FOREIGN KEY (dentista_id) REFERENCES dentistas(id)
         )
     """)
 
+    # Migração: bancos criados antes do item 1 não têm a coluna duracao_minutos.
+    # PRAGMA table_info devolve uma linha por coluna; o nome fica na posição 1.
+    colunas = [linha[1] for linha in cursor.execute("PRAGMA table_info(consultas)")]
+    if "duracao_minutos" not in colunas:
+        cursor.execute(
+            "ALTER TABLE consultas ADD COLUMN duracao_minutos INTEGER NOT NULL DEFAULT 30"
+        )
+
     conexao.commit()
-    conexao.close()
 
 
 
@@ -134,40 +149,58 @@ def buscar_dentista_por_id(dentista_id):
 
 # CONSULTA
 
-def dentista_disponivel(dentista_id, data_hora):
+# Regra de sobreposição: [inicio, fim) novo conflita com um existente se
+#   inicio_existente < fim_novo  E  fim_existente > inicio_novo
+# O fim de cada consulta é calculado pelo SQLite: datetime(data_hora, '+N minutes').
+# Como todas as datas têm o formato "AAAA-MM-DD HH:MM:SS", comparar texto = comparar datas.
+_SQL_CONFLITO = """
+    SELECT 1 FROM consultas
+    WHERE dentista_id = ?
+      AND estado != 'Cancelada'
+      AND data_hora < datetime(?, ?)
+      AND datetime(data_hora, '+' || duracao_minutos || ' minutes') > ?
+    LIMIT 1
+"""
+
+
+def _existe_conflito(cursor, dentista_id, data_hora, duracao_minutos):
+    cursor.execute(
+        _SQL_CONFLITO,
+        (dentista_id, data_hora, f"+{int(duracao_minutos)} minutes", data_hora)
+    )
+    return cursor.fetchone() is not None
+
+
+def dentista_disponivel(dentista_id, data_hora, duracao_minutos=30):
     conexao = criar_conexao()
     try:
-        cursor = conexao.cursor()
-        cursor.execute(
-            """
-            SELECT * FROM consultas
-            WHERE dentista_id = ?
-            AND data_hora = ?
-            AND estado != 'Cancelada'
-            """,
-            (dentista_id, data_hora)
-        )
-        return cursor.fetchone() is None
+        return not _existe_conflito(conexao.cursor(), dentista_id, data_hora, duracao_minutos)
     finally:
         conexao.close()
 
 
-def inserir_consulta(data_hora, motivo, paciente_id, dentista_id):
-    if not dentista_disponivel(dentista_id, data_hora):
-        raise ConflitoDeHorarioError("Dentista já possui consulta marcada nesse horário.")
-
+def inserir_consulta(data_hora, motivo, paciente_id, dentista_id, duracao_minutos=30):
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
-        cursor.execute(
-            """
-            INSERT INTO consultas (data_hora, motivo, paciente_id, dentista_id)
-            VALUES (?, ?, ?, ?)
-            """,
-            (data_hora, motivo, paciente_id, dentista_id)
-        )
-        conexao.commit()
-        return cursor.lastrowid
+        # BEGIN IMMEDIATE trava o banco para escrita já agora. Assim, ninguém consegue
+        # inserir entre a nossa checagem de conflito e o nosso INSERT (atomicidade).
+        cursor.execute("BEGIN IMMEDIATE")
+        try:
+            if _existe_conflito(cursor, dentista_id, data_hora, duracao_minutos):
+                raise ConflitoDeHorarioError("Dentista já possui consulta marcada nesse horário.")
+            cursor.execute(
+                """
+                INSERT INTO consultas (data_hora, motivo, paciente_id, dentista_id, duracao_minutos)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (data_hora, motivo, paciente_id, dentista_id, duracao_minutos)
+            )
+            conexao.commit()
+            return cursor.lastrowid
+        except BaseException:
+            conexao.rollback()
+            raise
     finally:
         conexao.close()
 
@@ -175,7 +208,7 @@ def buscar_consulta_por_id(consulta_id):
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
-        cursor.execute("SELECT * FROM consultas WHERE id = ?", (consulta_id,))
+        cursor.execute("SELECT id, data_hora, motivo, estado, paciente_id, dentista_id, duracao_minutos FROM consultas WHERE id = ?", (consulta_id,))
         return cursor.fetchone()
     finally:
         conexao.close()
@@ -185,7 +218,7 @@ def buscar_consultas_por_data(data):
     try:
         cursor = conexao.cursor()
         cursor.execute(
-            "SELECT * FROM consultas WHERE data_hora LIKE ?",
+            "SELECT id, data_hora, motivo, estado, paciente_id, dentista_id, duracao_minutos FROM consultas WHERE data_hora LIKE ? ORDER BY data_hora",
             (f"{data}%",)
         )
         return cursor.fetchall()

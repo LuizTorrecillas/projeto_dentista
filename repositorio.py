@@ -23,14 +23,15 @@ def dentista_para_objeto(linha):
 def consulta_para_objeto(linha):
     if linha is None:
         return None
-    id, data_hora_str, motivo, estado_str, paciente_id, dentista_id = linha
+    id, data_hora_str, motivo, estado_str, paciente_id, dentista_id, duracao_minutos = linha
     return Consulta(
         data_hora=datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M:%S"),
         motivo=motivo,
         paciente=obter_paciente_por_id(paciente_id),
         dentista=obter_dentista_por_id(dentista_id),
         id=id,
-        estado=EstadoConsulta(estado_str)
+        estado=EstadoConsulta(estado_str),
+        duracao_minutos=duracao_minutos
     )
 
 def obter_paciente_por_id(paciente_id):
