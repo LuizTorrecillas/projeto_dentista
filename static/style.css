@@ -11,7 +11,23 @@ header {
   background: #0b6e8a;
   color: white;
   padding: 1rem 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1rem;
 }
+header h1 { margin: 0; }
+
+.sessao { display: flex; align-items: center; gap: 0.75rem; }
+.sessao button {
+  margin: 0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+.sessao button:hover { background: rgba(255, 255, 255, 0.15); }
+
+.cartao-login { max-width: 380px; width: 100%; justify-self: center; }
 
 main {
   max-width: 720px;

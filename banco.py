@@ -1,5 +1,6 @@
 import sqlite3
 import unicodedata
+from datetime import datetime
 
 
 def normalizar_texto(texto):
@@ -73,6 +74,16 @@ def _criar_tabelas(conexao):
             duracao_minutos INTEGER NOT NULL DEFAULT 30,
             FOREIGN KEY (paciente_id) REFERENCES pacientes(id),
             FOREIGN KEY (dentista_id) REFERENCES dentistas(id)
+        )
+    """)
+
+    # COLLATE NOCASE: "Admin" e "admin" são o mesmo usuário (no UNIQUE e na busca).
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_usuario TEXT UNIQUE NOT NULL COLLATE NOCASE,
+            senha_hash TEXT NOT NULL,
+            criado_em TEXT NOT NULL
         )
     """)
 
@@ -203,6 +214,48 @@ def listar_dentistas(busca="", limite=50):
             (normalizar_texto(busca.strip()), limite)
         )
         return cursor.fetchall()
+    finally:
+        conexao.close()
+
+
+# USUÁRIO
+
+def inserir_usuario(nome_usuario, senha_hash):
+    conexao = criar_conexao()
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            "INSERT INTO usuarios (nome_usuario, senha_hash, criado_em) VALUES (?, ?, ?)",
+            (nome_usuario, senha_hash, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        conexao.commit()
+        return cursor.lastrowid
+    finally:
+        conexao.close()
+
+
+def buscar_usuario_por_nome(nome_usuario):
+    conexao = criar_conexao()
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            "SELECT id, nome_usuario, senha_hash, criado_em FROM usuarios WHERE nome_usuario = ?",
+            (nome_usuario,)
+        )
+        return cursor.fetchone()
+    finally:
+        conexao.close()
+
+
+def buscar_usuario_por_id(usuario_id):
+    conexao = criar_conexao()
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            "SELECT id, nome_usuario, senha_hash, criado_em FROM usuarios WHERE id = ?",
+            (usuario_id,)
+        )
+        return cursor.fetchone()
     finally:
         conexao.close()
 

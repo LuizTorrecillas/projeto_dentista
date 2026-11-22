@@ -1,3 +1,32 @@
+// ---------- Acesso à API ----------
+// Todas as chamadas passam por aqui. Se a API responder 401 (sem login ou sessão
+// expirada), vamos para a tela de login. A promessa devolvida nunca termina, para
+// que o código que chamou simplesmente pare, sem mostrar erro na tela.
+async function chamarApi(url, opcoes = {}) {
+  const resposta = await fetch(url, opcoes);
+  if (resposta.status === 401) {
+    window.location.replace("/login.html");
+    return new Promise(() => {});
+  }
+  return resposta;
+}
+
+// ---------- Sessão (cabeçalho) ----------
+async function carregarUsuario() {
+  const resposta = await chamarApi("/me");
+  if (resposta.ok) {
+    const usuario = await resposta.json();
+    document.getElementById("usuario-logado").textContent = usuario.nome_usuario;
+  }
+}
+
+document.getElementById("btn-sair").addEventListener("click", async () => {
+  await fetch("/logout", { method: "POST" });
+  window.location.replace("/login.html");
+});
+
+carregarUsuario();
+
 const filtroData = document.getElementById("filtro-data");
 const lista = document.getElementById("lista-consultas");
 const form = document.getElementById("form-agendar");
@@ -69,7 +98,7 @@ function criarSeletor({ input, lista, url, formatar, chave }) {
   async function buscar() {
     const meuNumero = ++numeroPedido;
     const termo = encodeURIComponent(input.value.trim());
-    const resposta = await fetch(`${url}?busca=${termo}&limite=10`);
+    const resposta = await chamarApi(`${url}?busca=${termo}&limite=10`);
     if (!resposta.ok) return;
     const itens = await resposta.json();
     // Se a pessoa digitou de novo enquanto esperávamos, esta resposta já está velha
@@ -141,7 +170,7 @@ function extrairErro(corpo) {
 }
 
 async function carregarConsultas() {
-  const resposta = await fetch(`/consultas?data=${filtroData.value}`);
+  const resposta = await chamarApi(`/consultas?data=${filtroData.value}`);
   const consultas = await resposta.json();
 
   lista.innerHTML = "";
@@ -179,7 +208,7 @@ async function carregarConsultas() {
 }
 
 async function cancelarConsulta(id) {
-  const resposta = await fetch(`/consultas/${id}/cancelar`, { method: "PATCH" });
+  const resposta = await chamarApi(`/consultas/${id}/cancelar`, { method: "PATCH" });
   if (!resposta.ok) {
     const corpo = await resposta.json();
     mostrarMensagem(extrairErro(corpo), "erro");
@@ -207,7 +236,7 @@ form.addEventListener("submit", async (evento) => {
     duracao_minutos: Number(document.getElementById("duracao").value),
   };
 
-  const resposta = await fetch("/consultas", {
+  const resposta = await chamarApi("/consultas", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(dados),
@@ -238,7 +267,7 @@ function mostrarMensagemEm(elemento, texto, tipo) {
 }
 
 async function enviarCadastro(url, dados, formulario, elementoMsg, textoSucesso) {
-  const resposta = await fetch(url, {
+  const resposta = await chamarApi(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(dados),
