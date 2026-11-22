@@ -58,9 +58,8 @@ def criar_tabelas():
 
 def inserir_paciente(nome, cpf, telefone):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-
     try:
+        cursor = conexao.cursor()
         cursor.execute(
             "INSERT INTO pacientes (nome, cpf, telefone) VALUES (?, ?, ?)",
             (nome, cpf, telefone)
@@ -73,22 +72,25 @@ def inserir_paciente(nome, cpf, telefone):
 
 def buscar_paciente_por_cpf(cpf):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-
-    cursor.execute(
-        "SELECT * FROM pacientes WHERE cpf = ?", (cpf,)
-    )
-    resultado = cursor.fetchone()
-    conexao.close()
-    return resultado 
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            "SELECT * FROM pacientes WHERE cpf = ?", (cpf,)
+        )
+        return cursor.fetchone()
+    finally:
+        conexao.close()
+    
 
 def buscar_paciente_por_id(paciente_id):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-    cursor.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,))
-    resultado = cursor.fetchone()
-    conexao.close()
-    return resultado
+    try:
+        cursor = conexao.cursor()
+        cursor.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,))
+        return cursor.fetchone()
+    finally:
+        conexao.close()
+    
 
 
 #DENTISTA
@@ -109,42 +111,45 @@ def inserir_dentista(nome, cro, especialidade):
 
 def buscar_dentista_por_cro(cro):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
+    try:
+        cursor = conexao.cursor()
 
-    cursor.execute(
-        "SELECT * FROM dentistas WHERE cro = ?", (cro,)
-    )
-    resultado = cursor.fetchone()
-    conexao.close()
-    return resultado
+        cursor.execute(
+            "SELECT * FROM dentistas WHERE cro = ?", (cro,)
+        )
+        return cursor.fetchone()
+    finally:
+        conexao.close()
 
 def buscar_dentista_por_id(dentista_id):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-    cursor.execute("SELECT * FROM dentistas WHERE id = ?", (dentista_id,))
-    resultado = cursor.fetchone()
-    conexao.close()
-    return resultado
+    try:
+        cursor = conexao.cursor()
+        cursor.execute("SELECT * FROM dentistas WHERE id = ?", (dentista_id,))
+        return cursor.fetchone()
+    finally:
+        conexao.close()
+  
 
 
 # CONSULTA
 
 def dentista_disponivel(dentista_id, data_hora):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-
-    cursor.execute(
-        """
-        SELECT * FROM consultas
-        WHERE dentista_id = ?
-        AND data_hora = ?
-        AND estado != 'Cancelada'
-        """,
-        (dentista_id, data_hora)
-    )
-    resultado = cursor.fetchone()
-    conexao.close()
-    return resultado is None
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM consultas
+            WHERE dentista_id = ?
+            AND data_hora = ?
+            AND estado != 'Cancelada'
+            """,
+            (dentista_id, data_hora)
+        )
+        return cursor.fetchone() is None
+    finally:
+        conexao.close()
 
 
 def inserir_consulta(data_hora, motivo, paciente_id, dentista_id):
@@ -152,51 +157,53 @@ def inserir_consulta(data_hora, motivo, paciente_id, dentista_id):
         raise ConflitoDeHorarioError("Dentista já possui consulta marcada nesse horário.")
 
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-
-    cursor.execute(
-        """
-        INSERT INTO consultas (data_hora, motivo, paciente_id, dentista_id)
-        VALUES (?, ?, ?, ?)
-        """,
-        (data_hora, motivo, paciente_id, dentista_id)
-    )
-    conexao.commit()
-    consulta_id = cursor.lastrowid
-    conexao.close()
-    return consulta_id
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            """
+            INSERT INTO consultas (data_hora, motivo, paciente_id, dentista_id)
+            VALUES (?, ?, ?, ?)
+            """,
+            (data_hora, motivo, paciente_id, dentista_id)
+        )
+        conexao.commit()
+        return cursor.lastrowid
+    finally:
+        conexao.close()
 
 def buscar_consulta_por_id(consulta_id):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-    cursor.execute("SELECT * FROM consultas WHERE id = ?", (consulta_id,))
-    resultado = cursor.fetchone()
-    conexao.close()
-    return resultado
+    try:
+        cursor = conexao.cursor()
+        cursor.execute("SELECT * FROM consultas WHERE id = ?", (consulta_id,))
+        return cursor.fetchone()
+    finally:
+        conexao.close()
 
 def buscar_consultas_por_data(data):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-
-    cursor.execute(
-        "SELECT * FROM consultas WHERE data_hora LIKE ?",
-        (f"{data}%",)
-    )
-    resultado = cursor.fetchall()
-    conexao.close()
-    return resultado
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            "SELECT * FROM consultas WHERE data_hora LIKE ?",
+            (f"{data}%",)
+        )
+        return cursor.fetchall()
+    finally:
+        conexao.close()
 
 
 def cancelar_consulta(consulta_id):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-
-    cursor.execute(
-        "UPDATE consultas SET estado = 'Cancelada' WHERE id = ?",
-        (consulta_id,)
-    )
-    conexao.commit()
-    conexao.close()
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            "UPDATE consultas SET estado = 'Cancelada' WHERE id = ?",
+            (consulta_id,)
+        )
+        conexao.commit()
+    finally:
+        conexao.close()
 
 class ConflitoDeHorarioError(ValueError):
     pass

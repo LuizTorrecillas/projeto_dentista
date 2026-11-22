@@ -115,3 +115,8 @@ def cancelar_consulta(consulta_id: int):
         raise HTTPException(404, "Consulta não encontrada.")
     agenda.cancelar(consulta_id)
     return consulta_para_dict(consulta_para_objeto(buscar_consulta_por_id(consulta_id)))
+
+
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
