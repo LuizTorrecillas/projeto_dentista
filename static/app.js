@@ -97,3 +97,58 @@ form.addEventListener("submit", async (evento) => {
 
 filtroData.addEventListener("change", carregarConsultas);
 carregarConsultas();
+
+// ---------- Cadastros ----------
+
+function mostrarMensagemEm(elemento, texto, tipo) {
+  elemento.textContent = texto;
+  elemento.className = tipo;
+}
+
+async function enviarCadastro(url, dados, formulario, elementoMsg, textoSucesso) {
+  const resposta = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dados),
+  });
+  const corpo = await resposta.json();
+
+  if (!resposta.ok) {
+    mostrarMensagemEm(elementoMsg, extrairErro(corpo), "erro");
+    return;
+  }
+  mostrarMensagemEm(elementoMsg, textoSucesso, "sucesso");
+  formulario.reset();
+}
+
+const formPaciente = document.getElementById("form-paciente");
+formPaciente.addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  enviarCadastro(
+    "/pacientes",
+    {
+      nome: document.getElementById("pac-nome").value,
+      cpf: document.getElementById("pac-cpf").value,
+      telefone: document.getElementById("pac-telefone").value,
+    },
+    formPaciente,
+    document.getElementById("msg-paciente"),
+    "Paciente cadastrado!"
+  );
+});
+
+const formDentista = document.getElementById("form-dentista");
+formDentista.addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  enviarCadastro(
+    "/dentistas",
+    {
+      nome: document.getElementById("den-nome").value,
+      cro: document.getElementById("den-cro").value,
+      especialidade: document.getElementById("den-especialidade").value,
+    },
+    formDentista,
+    document.getElementById("msg-dentista"),
+    "Dentista cadastrado!"
+  );
+});

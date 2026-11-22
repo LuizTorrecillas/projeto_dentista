@@ -39,6 +39,40 @@
       </form>
       <p id="mensagem" role="status"></p>
     </section>
+
+        <section class="card">
+      <h2>Cadastrar paciente</h2>
+      <form id="form-paciente">
+        <label for="pac-nome">Nome</label>
+        <input type="text" id="pac-nome" required>
+
+        <label for="pac-cpf">CPF</label>
+        <input type="text" id="pac-cpf" required>
+
+        <label for="pac-telefone">Telefone</label>
+        <input type="text" id="pac-telefone" required>
+
+        <button type="submit">Cadastrar paciente</button>
+      </form>
+      <p id="msg-paciente" role="status"></p>
+    </section>
+
+    <section class="card">
+      <h2>Cadastrar dentista</h2>
+      <form id="form-dentista">
+        <label for="den-nome">Nome</label>
+        <input type="text" id="den-nome" required>
+
+        <label for="den-cro">CRO</label>
+        <input type="text" id="den-cro" required>
+
+        <label for="den-especialidade">Especialidade</label>
+        <input type="text" id="den-especialidade" required>
+
+        <button type="submit">Cadastrar dentista</button>
+      </form>
+      <p id="msg-dentista" role="status"></p>
+    </section>
   </main>
 
   <script src="app.js"></script>
