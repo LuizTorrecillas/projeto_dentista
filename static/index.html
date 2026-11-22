@@ -4,10 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clínica Odontológica</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
+  <header>
     <h1>Agenda da Clínica</h1>
-    <p>Front-end funcionando!</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Consultas do dia</h2>
+      <label for="filtro-data">Data</label>
+      <input type="date" id="filtro-data">
+      <ul id="lista-consultas"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Agendar consulta</h2>
+      <form id="form-agendar">
+        <label for="paciente-cpf">CPF do paciente</label>
+        <input type="text" id="paciente-cpf" required>
+
+        <label for="dentista-cro">CRO do dentista</label>
+        <input type="text" id="dentista-cro" required>
+
+        <label for="data-hora">Data e hora</label>
+        <input type="datetime-local" id="data-hora" required>
+
+        <label for="motivo">Motivo</label>
+        <input type="text" id="motivo" required>
+
+        <button type="submit">Agendar</button>
+      </form>
+      <p id="mensagem" role="status"></p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
 </body>
 </html>
