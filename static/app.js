@@ -3,6 +3,129 @@ const lista = document.getElementById("lista-consultas");
 const form = document.getElementById("form-agendar");
 const mensagem = document.getElementById("mensagem");
 
+// ---------- Seleção pesquisável ----------
+// Liga um campo de texto a uma lista de sugestões que vem da API enquanto se digita.
+// Ao escolher uma sugestão, guardamos o objeto inteiro; o formulário pega só a chave
+// (cpf ou cro) com valor(). Se a pessoa editar o texto depois, a escolha é desfeita.
+function criarSeletor({ input, lista, url, formatar, chave }) {
+  let escolhido = null;
+  let itensAtuais = [];
+  let ativo = -1;
+  let temporizador = null;
+  let numeroPedido = 0;
+
+  function fechar() {
+    lista.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+    ativo = -1;
+  }
+
+  function destacar(indice) {
+    ativo = indice;
+    [...lista.children].forEach((li, i) => li.classList.toggle("ativo", i === indice));
+    if (indice >= 0) {
+      const li = lista.children[indice];
+      input.setAttribute("aria-activedescendant", li.id);
+      li.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function escolher(item) {
+    escolhido = item;
+    input.value = formatar(item);
+    fechar();
+  }
+
+  function mostrar(itens) {
+    itensAtuais = itens;
+    lista.replaceChildren();
+    ativo = -1;
+
+    if (itens.length === 0) {
+      const vazio = document.createElement("li");
+      vazio.className = "vazio";
+      vazio.textContent = "Nenhum resultado.";
+      lista.appendChild(vazio);
+    }
+
+    itens.forEach((item, i) => {
+      const li = document.createElement("li");
+      li.id = `${lista.id}-${i}`;
+      li.setAttribute("role", "option");
+      li.textContent = formatar(item); // textContent: dados do banco nunca viram HTML
+      // mousedown (e não click) porque o click viria depois do blur, que fecha a lista
+      li.addEventListener("mousedown", (evento) => {
+        evento.preventDefault();
+        escolher(item);
+      });
+      lista.appendChild(li);
+    });
+
+    lista.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  }
+
+  async function buscar() {
+    const meuNumero = ++numeroPedido;
+    const termo = encodeURIComponent(input.value.trim());
+    const resposta = await fetch(`${url}?busca=${termo}&limite=10`);
+    if (!resposta.ok) return;
+    const itens = await resposta.json();
+    // Se a pessoa digitou de novo enquanto esperávamos, esta resposta já está velha
+    if (meuNumero !== numeroPedido) return;
+    if (document.activeElement === input) mostrar(itens);
+  }
+
+  input.addEventListener("input", () => {
+    escolhido = null;
+    clearTimeout(temporizador);
+    temporizador = setTimeout(buscar, 250); // espera a pessoa parar de digitar
+  });
+  input.addEventListener("focus", buscar);
+  input.addEventListener("blur", fechar);
+  input.addEventListener("keydown", (evento) => {
+    if (lista.hidden || itensAtuais.length === 0) return;
+    if (evento.key === "ArrowDown") {
+      evento.preventDefault();
+      destacar(Math.min(ativo + 1, itensAtuais.length - 1));
+    } else if (evento.key === "ArrowUp") {
+      evento.preventDefault();
+      destacar(Math.max(ativo - 1, 0));
+    } else if (evento.key === "Enter" && ativo >= 0) {
+      evento.preventDefault();
+      escolher(itensAtuais[ativo]);
+    } else if (evento.key === "Escape") {
+      fechar();
+    }
+  });
+
+  return {
+    valor: () => (escolhido ? escolhido[chave] : null),
+    limpar: () => {
+      escolhido = null;
+      input.value = "";
+      fechar();
+    },
+  };
+}
+
+const seletorPaciente = criarSeletor({
+  input: document.getElementById("busca-paciente"),
+  lista: document.getElementById("opcoes-paciente"),
+  url: "/pacientes",
+  formatar: (p) => `${p.nome} - ${p.cpf}`,
+  chave: "cpf",
+});
+
+const seletorDentista = criarSeletor({
+  input: document.getElementById("busca-dentista"),
+  lista: document.getElementById("opcoes-dentista"),
+  url: "/dentistas",
+  formatar: (d) => `${d.nome} - ${d.cro} - ${d.especialidade}`,
+  chave: "cro",
+});
+
 // data de hoje no fuso local (toISOString usaria UTC e poderia errar o dia)
 filtroData.value = new Date().toLocaleDateString("sv-SE");
 
@@ -69,9 +192,16 @@ async function cancelarConsulta(id) {
 form.addEventListener("submit", async (evento) => {
   evento.preventDefault();
 
+  const pacienteCpf = seletorPaciente.valor();
+  const dentistaCro = seletorDentista.valor();
+  if (!pacienteCpf || !dentistaCro) {
+    mostrarMensagem("Escolha o paciente e o dentista na lista de sugestões.", "erro");
+    return;
+  }
+
   const dados = {
-    paciente_cpf: document.getElementById("paciente-cpf").value,
-    dentista_cro: document.getElementById("dentista-cro").value,
+    paciente_cpf: pacienteCpf,
+    dentista_cro: dentistaCro,
     data_hora: document.getElementById("data-hora").value,
     motivo: document.getElementById("motivo").value,
     duracao_minutos: Number(document.getElementById("duracao").value),
@@ -91,6 +221,8 @@ form.addEventListener("submit", async (evento) => {
 
   mostrarMensagem("Consulta agendada com sucesso!", "sucesso");
   form.reset();
+  seletorPaciente.limpar();
+  seletorDentista.limpar();
   filtroData.value = dados.data_hora.slice(0, 10); // mostra o dia da consulta recém-criada
   carregarConsultas();
 });

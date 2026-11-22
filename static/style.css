@@ -67,3 +67,30 @@ li.cancelada { opacity: 0.5; text-decoration: line-through; }
 
 #mensagem.erro { color: #c0392b; }
 #mensagem.sucesso { color: #1e8449; }
+
+/* ---------- Seleção pesquisável (paciente / dentista) ---------- */
+.seletor { position: relative; }
+
+.opcoes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 2px 0 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #b8c4cc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.opcoes li {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-bottom: none;
+  cursor: pointer;
+}
+.opcoes li.ativo, .opcoes li:hover { background: #e6f0f5; }
+.opcoes li.vazio { color: #6b7a86; cursor: default; background: none; }
+

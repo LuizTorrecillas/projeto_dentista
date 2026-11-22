@@ -1,8 +1,27 @@
 import sqlite3
+import unicodedata
+
+
+def normalizar_texto(texto):
+    """Deixa o texto minúsculo e sem acentos: "João" -> "joao".
+
+    NFD separa a letra do acento ("ã" vira "a" + "~"); depois descartamos
+    os acentos soltos (categoria "Mn" do Unicode). casefold() é um lower()
+    mais completo para comparações.
+    """
+    if texto is None:
+        return ""
+    decomposto = unicodedata.normalize("NFD", texto)
+    sem_acento = "".join(c for c in decomposto if unicodedata.category(c) != "Mn")
+    return sem_acento.casefold()
+
 
 def criar_conexao():
     conexao = sqlite3.connect("clinica.db")
     conexao.execute("PRAGMA foreign_keys = ON")  # ativa integridade referencial
+    # Registra normalizar_texto como função SQL: assim dá para escrever
+    # normalizar(nome) dentro de um SELECT (o LIKE do SQLite não ignora acentos).
+    conexao.create_function("normalizar", 1, normalizar_texto, deterministic=True)
     return conexao
 
 def criar_tabelas():
@@ -108,6 +127,28 @@ def buscar_paciente_por_id(paciente_id):
     
 
 
+def listar_pacientes(busca="", limite=50):
+    """Pacientes cujo nome contém `busca` (sem diferenciar maiúsculas nem acentos)."""
+    conexao = criar_conexao()
+    try:
+        cursor = conexao.cursor()
+        # instr(a, b) > 0 significa "b aparece dentro de a". Usamos instr em vez de
+        # LIKE para que % e _ digitados pelo usuário não virem curingas.
+        # Com busca vazia, instr devolve 1, ou seja, todos entram.
+        cursor.execute(
+            """
+            SELECT id, nome, cpf, telefone FROM pacientes
+            WHERE instr(normalizar(nome), ?) > 0
+            ORDER BY normalizar(nome), id
+            LIMIT ?
+            """,
+            (normalizar_texto(busca.strip()), limite)
+        )
+        return cursor.fetchall()
+    finally:
+        conexao.close()
+
+
 #DENTISTA
 
 def inserir_dentista(nome, cro, especialidade):
@@ -145,6 +186,25 @@ def buscar_dentista_por_id(dentista_id):
     finally:
         conexao.close()
   
+
+
+def listar_dentistas(busca="", limite=50):
+    """Dentistas cujo nome contém `busca` (sem diferenciar maiúsculas nem acentos)."""
+    conexao = criar_conexao()
+    try:
+        cursor = conexao.cursor()
+        cursor.execute(
+            """
+            SELECT id, nome, cro, especialidade FROM dentistas
+            WHERE instr(normalizar(nome), ?) > 0
+            ORDER BY normalizar(nome), id
+            LIMIT ?
+            """,
+            (normalizar_texto(busca.strip()), limite)
+        )
+        return cursor.fetchall()
+    finally:
+        conexao.close()
 
 
 # CONSULTA

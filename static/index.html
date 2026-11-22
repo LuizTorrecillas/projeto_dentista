@@ -23,11 +23,23 @@
     <section class="card">
       <h2>Agendar consulta</h2>
       <form id="form-agendar">
-        <label for="paciente-cpf">CPF do paciente</label>
-        <input type="text" id="paciente-cpf" required>
+        <label for="busca-paciente">Paciente</label>
+        <div class="seletor">
+          <input type="text" id="busca-paciente" autocomplete="off" required
+                 placeholder="Digite o nome do paciente"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="opcoes-paciente">
+          <ul id="opcoes-paciente" class="opcoes" role="listbox" hidden></ul>
+        </div>
 
-        <label for="dentista-cro">CRO do dentista</label>
-        <input type="text" id="dentista-cro" required>
+        <label for="busca-dentista">Dentista</label>
+        <div class="seletor">
+          <input type="text" id="busca-dentista" autocomplete="off" required
+                 placeholder="Digite o nome do dentista"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="opcoes-dentista">
+          <ul id="opcoes-dentista" class="opcoes" role="listbox" hidden></ul>
+        </div>
 
         <label for="data-hora">Data e hora</label>
         <input type="datetime-local" id="data-hora" required>

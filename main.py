@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import date, datetime
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from banco import (
@@ -11,6 +11,7 @@ from banco import (
 from clinica import Agenda
 from repositorio import (
     obter_paciente_por_cpf, obter_dentista_por_cro, consulta_para_objeto,
+    obter_pacientes, obter_dentistas,
 )
 
 criar_tabelas()
@@ -38,6 +39,13 @@ class ConsultaIn(BaseModel):
     duracao_minutos: int = Field(default=30, ge=10, le=240)
 
 
+def paciente_para_dict(p):
+    return {"id": p.id, "nome": p.nome, "cpf": p.cpf, "telefone": p.telefone}
+
+def dentista_para_dict(d):
+    return {"id": d.id, "nome": d.nome, "cro": d.cro, "especialidade": d.especialidade}
+
+
 def consulta_para_dict(c):
     return {
         "id": c.id,
@@ -61,13 +69,21 @@ def criar_paciente(dados: PacienteIn):
         raise HTTPException(409, "Já existe um paciente com esse CPF.")
     return {"id": novo_id, **dados.model_dump()}
 
+# A rota da lista vem ANTES da rota com {cpf}. (Elas nem chegariam a colidir, pois
+# "/pacientes" não tem o segundo pedaço do caminho, mas a ordem deixa a intenção clara.)
+@app.get("/pacientes")
+def listar_pacientes_api(
+    busca: str = Query("", max_length=100),
+    limite: int = Query(50, ge=1, le=50),
+):
+    return [paciente_para_dict(p) for p in obter_pacientes(busca, limite)]
+
 @app.get("/pacientes/{cpf}")
 def obter_paciente(cpf: str):
     paciente = obter_paciente_por_cpf(cpf)
     if paciente is None:
         raise HTTPException(404, "Paciente não encontrado.")
-    return {"id": paciente.id, "nome": paciente.nome,
-            "cpf": paciente.cpf, "telefone": paciente.telefone}
+    return paciente_para_dict(paciente)
 
 
 # ---------- Dentistas ----------
@@ -80,13 +96,19 @@ def criar_dentista(dados: DentistaIn):
         raise HTTPException(409, "Já existe um dentista com esse CRO.")
     return {"id": novo_id, **dados.model_dump()}
 
+@app.get("/dentistas")
+def listar_dentistas_api(
+    busca: str = Query("", max_length=100),
+    limite: int = Query(50, ge=1, le=50),
+):
+    return [dentista_para_dict(d) for d in obter_dentistas(busca, limite)]
+
 @app.get("/dentistas/{cro}")
 def obter_dentista(cro: str):
     dentista = obter_dentista_por_cro(cro)
     if dentista is None:
         raise HTTPException(404, "Dentista não encontrado.")
-    return {"id": dentista.id, "nome": dentista.nome,
-            "cro": dentista.cro, "especialidade": dentista.especialidade}
+    return dentista_para_dict(dentista)
 
 
 # ---------- Consultas ----------

@@ -1,6 +1,7 @@
 from banco import (
     buscar_paciente_por_id, buscar_paciente_por_cpf,
     buscar_dentista_por_id, buscar_dentista_por_cro,
+    listar_pacientes, listar_dentistas,
 )
 from clinica import Paciente, Dentista, Consulta, EstadoConsulta
 from datetime import datetime
@@ -53,3 +54,10 @@ def obter_dentista_por_cro(cro):
     linha = buscar_dentista_por_cro(cro)
     return dentista_para_objeto(linha)
 
+
+def obter_pacientes(busca="", limite=50):
+    return [paciente_para_objeto(linha) for linha in listar_pacientes(busca, limite)]
+
+
+def obter_dentistas(busca="", limite=50):
+    return [dentista_para_objeto(linha) for linha in listar_dentistas(busca, limite)]
