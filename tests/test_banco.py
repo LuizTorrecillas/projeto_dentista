@@ -6,8 +6,11 @@ from datetime import datetime, timedelta
 import pytest
 
 import banco
-from clinica import Agenda
-from repositorio import obter_dentista_por_cro, obter_paciente_por_cpf
+from clinica import Agenda, EstadoConsulta, normalizar_cpf, normalizar_cro, normalizar_nome
+from excecoes import ConsultaJaCanceladaError, ConsultaNaoEncontradaError, RegistroDuplicadoError
+from repositorio import (
+    criar_paciente, obter_dentista_por_cro, obter_paciente_por_cpf,
+)
 
 
 def test_normalizar_texto():
@@ -41,9 +44,9 @@ def test_migracao_adiciona_duracao_em_banco_antigo(tmp_path, monkeypatch):
 
 @pytest.fixture
 def paciente_e_dentista():
-    banco.inserir_paciente("Ana", "1", "61")
+    banco.inserir_paciente("Ana", "11122233344", "61")
     banco.inserir_dentista("Carlos", "C1", "Clínico")
-    return obter_paciente_por_cpf("1"), obter_dentista_por_cro("C1")
+    return obter_paciente_por_cpf("11122233344"), obter_dentista_por_cro("C1")
 
 
 def test_agendamentos_simultaneos_so_um_vence(paciente_e_dentista):
@@ -87,3 +90,47 @@ def test_consulta_carregada_do_banco_tem_duracao_e_fim(paciente_e_dentista):
     [consulta] = Agenda().consultas_do_dia(inicio.date())
     assert consulta.duracao_minutos == 45
     assert consulta.data_hora_fim == inicio + timedelta(minutes=45)
+
+
+def test_normalizadores():
+    assert normalizar_nome("  maria   das  dores ") == "Maria Das Dores"
+    assert normalizar_cpf("111.222.333-44") == "11122233344"
+    assert normalizar_cro(" cro-df  123 ") == "CRO-DF 123"
+    with pytest.raises(ValueError):
+        normalizar_cpf("123")
+
+
+def test_repositorio_cria_paciente_padronizado_e_detecta_duplicado():
+    paciente = criar_paciente("  ana   lima ", "11122233344", "61")
+    assert paciente.id is not None
+    assert paciente.nome == "Ana Lima"
+    with pytest.raises(RegistroDuplicadoError):
+        criar_paciente("Outra", "11122233344", "61")
+
+
+def test_agenda_cancelar(paciente_e_dentista):
+    paciente, dentista = paciente_e_dentista
+    agenda = Agenda()
+    inicio = (datetime.now() + timedelta(days=2)).replace(hour=10, minute=0, second=0, microsecond=0)
+    consulta = agenda.agendar(inicio, "x", paciente, dentista)
+
+    cancelada = agenda.cancelar(consulta.id)
+    assert cancelada.estado == EstadoConsulta.CANCELADA
+    with pytest.raises(ConsultaJaCanceladaError):
+        agenda.cancelar(consulta.id)
+    with pytest.raises(ConsultaNaoEncontradaError):
+        agenda.cancelar(9999)
+
+
+def test_api_nao_acessa_o_banco_diretamente():
+    """Arquitetura: o main.py só usa o banco para criar as tabelas na inicialização."""
+    import ast
+    import main
+    arvore = ast.parse(open(main.__file__, encoding="utf-8").read())
+    nomes_importados_do_banco = [
+        alias.name
+        for no in ast.walk(arvore)
+        if isinstance(no, ast.ImportFrom) and no.module == "banco"
+        for alias in no.names
+    ]
+    assert nomes_importados_do_banco == ["criar_tabelas"]

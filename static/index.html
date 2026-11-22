@@ -21,7 +21,7 @@
       <h2>Consultas do dia</h2>
       <label for="filtro-data">Data</label>
       <input type="date" id="filtro-data">
-      <ul id="lista-consultas"></ul>
+      <ul id="lista-consultas" class="lista-consultas"></ul>
     </section>
 
     <section class="card">
@@ -63,24 +63,24 @@
 
         <button type="submit">Agendar</button>
       </form>
-      <p id="mensagem" role="status"></p>
+      <p id="mensagem" role="status" aria-live="polite"></p>
     </section>
 
-        <section class="card">
+    <section class="card">
       <h2>Cadastrar paciente</h2>
       <form id="form-paciente">
         <label for="pac-nome">Nome</label>
         <input type="text" id="pac-nome" required>
 
         <label for="pac-cpf">CPF</label>
-        <input type="text" id="pac-cpf" required>
+        <input type="text" id="pac-cpf" required inputmode="numeric" placeholder="Com ou sem pontuação">
 
         <label for="pac-telefone">Telefone</label>
-        <input type="text" id="pac-telefone" required>
+        <input type="tel" id="pac-telefone" required>
 
         <button type="submit">Cadastrar paciente</button>
       </form>
-      <p id="msg-paciente" role="status"></p>
+      <p id="msg-paciente" role="status" aria-live="polite"></p>
     </section>
 
     <section class="card">
@@ -90,14 +90,14 @@
         <input type="text" id="den-nome" required>
 
         <label for="den-cro">CRO</label>
-        <input type="text" id="den-cro" required>
+        <input type="text" id="den-cro" required placeholder="Ex.: CRO-DF-12345">
 
         <label for="den-especialidade">Especialidade</label>
         <input type="text" id="den-especialidade" required>
 
         <button type="submit">Cadastrar dentista</button>
       </form>
-      <p id="msg-dentista" role="status"></p>
+      <p id="msg-dentista" role="status" aria-live="polite"></p>
     </section>
   </main>
 

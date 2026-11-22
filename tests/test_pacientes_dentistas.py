@@ -5,11 +5,12 @@ import pytest
 
 def test_criar_paciente_devolve_201_com_nome_padronizado(cliente_logado):
     resposta = cliente_logado.post(
-        "/pacientes", json={"nome": "joão da silva", "cpf": "1", "telefone": "61"})
+        "/pacientes", json={"nome": "  joão   da silva ", "cpf": "111.222.333-44", "telefone": "61"})
     assert resposta.status_code == 201
-    # O nome é salvo com iniciais maiúsculas; a resposta tem que mostrar o que foi salvo
+    # A resposta mostra o que foi SALVO: nome padronizado e CPF só com dígitos
     assert resposta.json()["nome"] == "João Da Silva"
-    assert cliente_logado.get("/pacientes/1").json()["nome"] == "João Da Silva"
+    assert resposta.json()["cpf"] == "11122233344"
+    assert cliente_logado.get("/pacientes/11122233344").json()["nome"] == "João Da Silva"
 
 
 def test_paciente_com_cpf_duplicado_devolve_409(cliente_logado, paciente):
@@ -52,7 +53,9 @@ def test_campo_obrigatorio_faltando_devolve_422(cliente_logado):
 def varios_pacientes(cliente_logado):
     for i, nome in enumerate(["João Silva", "Joana Souza", "Ângela Lima",
                               "Bruno 50% Off", "Zélia Costa"]):
-        cliente_logado.post("/pacientes", json={"nome": nome, "cpf": str(i), "telefone": "61"})
+        cpf = f"{i:011d}"
+        resposta = cliente_logado.post("/pacientes", json={"nome": nome, "cpf": cpf, "telefone": "61"})
+        assert resposta.status_code == 201
 
 
 def nomes(resposta):
@@ -105,5 +108,37 @@ def test_busca_de_dentista_sem_acento(cliente_logado):
 
 
 def test_cadastro_novo_aparece_na_busca(cliente_logado, varios_pacientes):
-    cliente_logado.post("/pacientes", json={"nome": "Érica Nova", "cpf": "99", "telefone": "61"})
+    cliente_logado.post("/pacientes", json={"nome": "Érica Nova", "cpf": "99999999999", "telefone": "61"})
     assert nomes(cliente_logado.get("/pacientes", params={"busca": "erica"})) == ["Érica Nova"]
+
+
+# ---------- Padronização de CPF e CRO ----------
+
+@pytest.mark.parametrize("cpf_repetido", ["111.222.333-44", " 11122233344 ", "111 222 333 44"])
+def test_mesmo_cpf_escrito_de_outro_jeito_e_duplicado(cliente_logado, paciente, cpf_repetido):
+    resposta = cliente_logado.post("/pacientes", json={**paciente, "cpf": cpf_repetido})
+    assert resposta.status_code == 409
+
+
+@pytest.mark.parametrize("cpf_invalido", ["", "123", "1112223334", "111222333445", "abc"])
+def test_cpf_sem_11_digitos_devolve_422_com_mensagem(cliente_logado, cpf_invalido):
+    resposta = cliente_logado.post("/pacientes",
+                                   json={"nome": "X", "cpf": cpf_invalido, "telefone": "61"})
+    assert resposta.status_code == 422
+    assert "11 dígitos" in resposta.json()["detail"][0]["msg"]
+
+
+def test_buscar_por_cpf_com_pontuacao(cliente_logado, paciente):
+    assert cliente_logado.get("/pacientes/111.222.333-44").status_code == 200
+
+
+def test_cro_em_minusculas_e_o_mesmo_dentista(cliente_logado, dentista):
+    repetido = {**dentista, "cro": "  cro-df-1234 "}
+    assert cliente_logado.post("/dentistas", json=repetido).status_code == 409
+    assert cliente_logado.get("/dentistas/cro-df-1234").json()["cro"] == "CRO-DF-1234"
+
+
+@pytest.mark.parametrize("campo", ["nome", "telefone"])
+def test_campo_so_com_espacos_devolve_422(cliente_logado, paciente, campo):
+    dados = {"nome": "Ana", "cpf": "55566677788", "telefone": "61", campo: "   "}
+    assert cliente_logado.post("/pacientes", json=dados).status_code == 422

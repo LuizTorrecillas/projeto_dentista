@@ -17,7 +17,7 @@ def nomes_pacientes(caminho):
 
 
 def test_backup_gera_arquivo_integro_com_os_dados(banco_temporario, tmp_path):
-    banco.inserir_paciente("Ana", "1", "61")
+    banco.inserir_paciente("Ana", "11111111111", "61")
     pasta = tmp_path / "backups"
 
     destino, apagados = backup.fazer_backup(pasta=pasta, agora=datetime(2026, 11, 22, 22, 30))
@@ -51,7 +51,7 @@ def test_backup_respeita_o_limite_de_arquivos(banco_temporario, tmp_path):
 
 
 def test_backup_com_escrita_em_andamento_copia_so_o_que_foi_confirmado(banco_temporario, tmp_path):
-    banco.inserir_paciente("Confirmado", "1", "61")
+    banco.inserir_paciente("Confirmado", "11111111111", "61")
     conexao = sqlite3.connect(banco_temporario)
     conexao.execute("BEGIN IMMEDIATE")      # simula o servidor no meio de uma gravação
     conexao.execute("INSERT INTO pacientes (nome, cpf) VALUES ('Pela Metade', '2')")
@@ -76,9 +76,9 @@ def test_backup_de_banco_inexistente_falha(tmp_path):
 
 def test_restaurar_volta_os_dados_e_guarda_o_banco_atual(banco_temporario, tmp_path):
     pasta = tmp_path / "backups"
-    banco.inserir_paciente("Ana", "1", "61")
+    banco.inserir_paciente("Ana", "11111111111", "61")
     arquivo_backup, _ = backup.fazer_backup(pasta=pasta)
-    banco.inserir_paciente("Depois Do Backup", "2", "61")
+    banco.inserir_paciente("Depois Do Backup", "22222222222", "61")
 
     copia = restaurar_backup.restaurar(arquivo_backup, pasta=pasta)
 
@@ -88,7 +88,7 @@ def test_restaurar_volta_os_dados_e_guarda_o_banco_atual(banco_temporario, tmp_p
 
 
 def test_restaurar_arquivo_corrompido_nao_mexe_no_banco(banco_temporario, tmp_path):
-    banco.inserir_paciente("Ana", "1", "61")
+    banco.inserir_paciente("Ana", "11111111111", "61")
     corrompido = tmp_path / "corrompido.db"
     corrompido.write_bytes(b"isto nao e um banco sqlite" * 100)
 

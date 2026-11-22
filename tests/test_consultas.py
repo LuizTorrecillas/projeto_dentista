@@ -70,6 +70,24 @@ def test_cancelar_consulta_inexistente_devolve_404(cliente_logado):
     assert cliente_logado.patch("/consultas/9999/cancelar").status_code == 404
 
 
+def test_cancelar_duas_vezes_devolve_409(cliente_logado, paciente, dentista, dia_futuro):
+    consulta_id = agendar(cliente_logado, paciente, dentista, dia_futuro.replace(hour=9)).json()["id"]
+    assert cliente_logado.patch(f"/consultas/{consulta_id}/cancelar").status_code == 200
+    assert cliente_logado.patch(f"/consultas/{consulta_id}/cancelar").status_code == 409
+
+
+def test_agendar_aceita_cpf_com_pontuacao_e_cro_minusculo(cliente_logado, paciente, dentista,
+                                                          dia_futuro):
+    formatados = {"cpf": "111.222.333-44"}, {"cro": dentista["cro"].lower()}
+    resposta = agendar(cliente_logado, *formatados, dia_futuro.replace(hour=9))
+    assert resposta.status_code == 201
+
+
+def test_motivo_vazio_devolve_422(cliente_logado, paciente, dentista, dia_futuro):
+    resposta = agendar(cliente_logado, paciente, dentista, dia_futuro.replace(hour=9), motivo="  ")
+    assert resposta.status_code == 422
+
+
 def test_data_no_passado_devolve_400(cliente_logado, paciente, dentista, dia_futuro):
     ontem = dia_futuro - timedelta(days=5)
     assert agendar(cliente_logado, paciente, dentista, ontem.replace(hour=14)).status_code == 400

@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 import config
+from excecoes import ConflitoDeHorarioError  # noqa: F401 (reexportado: banco.ConflitoDeHorarioError)
 
 config.carregar_env()  # permite definir CLINICA_DB no .env
 
@@ -47,6 +48,7 @@ def criar_conexao():
     # normalizar(nome) dentro de um SELECT (o LIKE do SQLite não ignora acentos).
     conexao.create_function("normalizar", 1, normalizar_texto, deterministic=True)
     return conexao
+
 
 def criar_tabelas():
     conexao = criar_conexao()
@@ -121,8 +123,9 @@ def _criar_tabelas(conexao):
     conexao.commit()
 
 
-
-#PACIENTE
+# ---------- Pacientes ----------
+# As colunas são listadas por nome (e não SELECT *) para que a ordem da tupla
+# não mude se um dia uma coluna nova for adicionada à tabela.
 
 def inserir_paciente(nome, cpf, telefone):
     conexao = criar_conexao()
@@ -133,9 +136,9 @@ def inserir_paciente(nome, cpf, telefone):
             (nome, cpf, telefone)
         )
         conexao.commit()
-        return cursor.lastrowid  #cursor.lastrowid da o id que acabou de ser gerado numa tabela com AUTOINCREMENT
+        return cursor.lastrowid  # id gerado pelo AUTOINCREMENT
     finally:
-        conexao.close()  # fecha mesmo se o INSERT falhar (ex.: CPF duplicado), senão o banco fica travado
+        conexao.close()  # fecha mesmo se o INSERT falhar (ex.: CPF duplicado)
 
 
 def buscar_paciente_por_cpf(cpf):
@@ -143,22 +146,23 @@ def buscar_paciente_por_cpf(cpf):
     try:
         cursor = conexao.cursor()
         cursor.execute(
-            "SELECT * FROM pacientes WHERE cpf = ?", (cpf,)
+            "SELECT id, nome, cpf, telefone FROM pacientes WHERE cpf = ?", (cpf,)
         )
         return cursor.fetchone()
     finally:
         conexao.close()
-    
+
 
 def buscar_paciente_por_id(paciente_id):
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
-        cursor.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,))
+        cursor.execute(
+            "SELECT id, nome, cpf, telefone FROM pacientes WHERE id = ?", (paciente_id,)
+        )
         return cursor.fetchone()
     finally:
         conexao.close()
-    
 
 
 def listar_pacientes(busca="", limite=50):
@@ -183,15 +187,15 @@ def listar_pacientes(busca="", limite=50):
         conexao.close()
 
 
-#DENTISTA
+# ---------- Dentistas ----------
 
 def inserir_dentista(nome, cro, especialidade):
     conexao = criar_conexao()
-    cursor = conexao.cursor()
-
     try:
+        cursor = conexao.cursor()
         cursor.execute(
-            "INSERT INTO dentistas (nome, cro, especialidade) VALUES (?,?,?)", (nome, cro, especialidade)
+            "INSERT INTO dentistas (nome, cro, especialidade) VALUES (?, ?, ?)",
+            (nome, cro, especialidade)
         )
         conexao.commit()
         return cursor.lastrowid
@@ -203,23 +207,24 @@ def buscar_dentista_por_cro(cro):
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
-
         cursor.execute(
-            "SELECT * FROM dentistas WHERE cro = ?", (cro,)
+            "SELECT id, nome, cro, especialidade FROM dentistas WHERE cro = ?", (cro,)
         )
         return cursor.fetchone()
     finally:
         conexao.close()
 
+
 def buscar_dentista_por_id(dentista_id):
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
-        cursor.execute("SELECT * FROM dentistas WHERE id = ?", (dentista_id,))
+        cursor.execute(
+            "SELECT id, nome, cro, especialidade FROM dentistas WHERE id = ?", (dentista_id,)
+        )
         return cursor.fetchone()
     finally:
         conexao.close()
-  
 
 
 def listar_dentistas(busca="", limite=50):
@@ -241,7 +246,7 @@ def listar_dentistas(busca="", limite=50):
         conexao.close()
 
 
-# USUÁRIO
+# ---------- Usuários ----------
 
 def inserir_usuario(nome_usuario, senha_hash):
     conexao = criar_conexao()
@@ -283,7 +288,9 @@ def buscar_usuario_por_id(usuario_id):
         conexao.close()
 
 
-# CONSULTA
+# ---------- Consultas ----------
+
+_COLUNAS_CONSULTA = "id, data_hora, motivo, estado, paciente_id, dentista_id, duracao_minutos"
 
 # Regra de sobreposição: [inicio, fim) novo conflita com um existente se
 #   inicio_existente < fim_novo  E  fim_existente > inicio_novo
@@ -305,14 +312,6 @@ def _existe_conflito(cursor, dentista_id, data_hora, duracao_minutos):
         (dentista_id, data_hora, f"+{int(duracao_minutos)} minutes", data_hora)
     )
     return cursor.fetchone() is not None
-
-
-def dentista_disponivel(dentista_id, data_hora, duracao_minutos=30):
-    conexao = criar_conexao()
-    try:
-        return not _existe_conflito(conexao.cursor(), dentista_id, data_hora, duracao_minutos)
-    finally:
-        conexao.close()
 
 
 def inserir_consulta(data_hora, motivo, paciente_id, dentista_id, duracao_minutos=30):
@@ -340,21 +339,27 @@ def inserir_consulta(data_hora, motivo, paciente_id, dentista_id, duracao_minuto
     finally:
         conexao.close()
 
+
 def buscar_consulta_por_id(consulta_id):
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
-        cursor.execute("SELECT id, data_hora, motivo, estado, paciente_id, dentista_id, duracao_minutos FROM consultas WHERE id = ?", (consulta_id,))
+        cursor.execute(
+            f"SELECT {_COLUNAS_CONSULTA} FROM consultas WHERE id = ?", (consulta_id,)
+        )
         return cursor.fetchone()
     finally:
         conexao.close()
 
+
 def buscar_consultas_por_data(data):
+    """Consultas de um dia (data no formato AAAA-MM-DD), em ordem de horário."""
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
         cursor.execute(
-            "SELECT id, data_hora, motivo, estado, paciente_id, dentista_id, duracao_minutos FROM consultas WHERE data_hora LIKE ? ORDER BY data_hora",
+            f"SELECT {_COLUNAS_CONSULTA} FROM consultas "
+            "WHERE data_hora LIKE ? ORDER BY data_hora, id",
             (f"{data}%",)
         )
         return cursor.fetchall()
@@ -363,16 +368,15 @@ def buscar_consultas_por_data(data):
 
 
 def cancelar_consulta(consulta_id):
+    """Cancela só se ainda estiver Agendada. Devolve True se alguma linha mudou."""
     conexao = criar_conexao()
     try:
         cursor = conexao.cursor()
         cursor.execute(
-            "UPDATE consultas SET estado = 'Cancelada' WHERE id = ?",
+            "UPDATE consultas SET estado = 'Cancelada' WHERE id = ? AND estado = 'Agendada'",
             (consulta_id,)
         )
         conexao.commit()
+        return cursor.rowcount > 0
     finally:
         conexao.close()
-
-class ConflitoDeHorarioError(ValueError):
-    pass

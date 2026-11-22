@@ -67,7 +67,7 @@ button:hover { background: #095a72; }
 
 ul { list-style: none; padding: 0; }
 
-li {
+.lista-consultas li {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -76,13 +76,16 @@ li {
   border-bottom: 1px solid #e3e9ed;
 }
 
-li.cancelada { opacity: 0.5; text-decoration: line-through; }
+.lista-consultas li.cancelada { opacity: 0.5; text-decoration: line-through; }
 
 .btn-cancelar { margin: 0; background: #c0392b; }
 .btn-cancelar:hover { background: #a02f23; }
 
-#mensagem.erro { color: #c0392b; }
-#mensagem.sucesso { color: #1e8449; }
+/* mensagens de todos os formulários (agendar, cadastros e login) */
+.erro { color: #c0392b; }
+.sucesso { color: #1e8449; }
+
+button:disabled { opacity: 0.6; cursor: wait; }
 
 /* ---------- Seleção pesquisável (paciente / dentista) ---------- */
 .seletor { position: relative; }
@@ -102,9 +105,7 @@ li.cancelada { opacity: 0.5; text-decoration: line-through; }
 }
 
 .opcoes li {
-  display: block;
   padding: 0.5rem 0.75rem;
-  border-bottom: none;
   cursor: pointer;
 }
 .opcoes li.ativo, .opcoes li:hover { background: #e6f0f5; }

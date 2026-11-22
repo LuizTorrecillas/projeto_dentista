@@ -1,4 +1,3 @@
-import sqlite3
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -6,20 +5,20 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.middleware.sessions import SessionMiddleware
 
 import autenticacao
 import config
-
-from banco import (
-    criar_tabelas, inserir_paciente, inserir_dentista,
-    buscar_consulta_por_id, ConflitoDeHorarioError,
+from banco import criar_tabelas
+from clinica import Agenda, normalizar_cpf, normalizar_cro
+from excecoes import (
+    ConflitoDeHorarioError, ConsultaJaCanceladaError,
+    ConsultaNaoEncontradaError, RegistroDuplicadoError,
 )
-from clinica import Agenda
 from repositorio import (
-    obter_paciente_por_cpf, obter_dentista_por_cro, consulta_para_objeto,
-    obter_pacientes, obter_dentistas,
+    criar_dentista, criar_paciente, obter_dentista_por_cro,
+    obter_dentistas, obter_paciente_por_cpf, obter_pacientes,
 )
 
 config.carregar_env()
@@ -67,27 +66,60 @@ api = APIRouter(dependencies=[Depends(usuario_logado)])
 
 
 # ---------- Schemas (formato dos dados que entram/saem) ----------
+# A validação de formato fica aqui, na entrada da API: dados ruins são recusados
+# com 422 antes de chegar às regras de negócio.
 
-class PacienteIn(BaseModel):
-    nome: str
-    cpf: str
-    telefone: str
+class Entrada(BaseModel):
+    # tira espaços do começo e do fim de todos os textos recebidos
+    model_config = ConfigDict(str_strip_whitespace=True)
 
-class DentistaIn(BaseModel):
-    nome: str
-    cro: str
-    especialidade: str
 
-class LoginIn(BaseModel):
+class PacienteIn(Entrada):
+    nome: str = Field(min_length=1, max_length=120)
+    cpf: str = Field(description="Com ou sem pontuação; é salvo só com os 11 dígitos")
+    telefone: str = Field(min_length=1, max_length=30)
+
+    @field_validator("cpf")
+    @classmethod
+    def padronizar_cpf(cls, valor):
+        return normalizar_cpf(valor)
+
+
+class DentistaIn(Entrada):
+    nome: str = Field(min_length=1, max_length=120)
+    cro: str = Field(min_length=1, max_length=30)
+    especialidade: str = Field(min_length=1, max_length=80)
+
+    @field_validator("cro")
+    @classmethod
+    def padronizar_cro(cls, valor):
+        return normalizar_cro(valor)
+
+
+class LoginIn(Entrada):
     nome_usuario: str = Field(min_length=1, max_length=100)
     senha: str = Field(min_length=1, max_length=200)
 
-class ConsultaIn(BaseModel):
+    # a senha NÃO pode perder espaços: eles fazem parte dela
+    model_config = ConfigDict(str_strip_whitespace=False)
+
+
+class ConsultaIn(Entrada):
     data_hora: datetime
-    motivo: str
+    motivo: str = Field(min_length=1, max_length=200)
     paciente_cpf: str
-    dentista_cro: str
-    duracao_minutos: int = Field(default=30, ge=10, le=240)
+    dentista_cro: str = Field(min_length=1, max_length=30)
+    duracao_minutos: int = Field(default=30, ge=Agenda.DURACAO_MIN, le=Agenda.DURACAO_MAX)
+
+    @field_validator("paciente_cpf")
+    @classmethod
+    def padronizar_cpf(cls, valor):
+        return normalizar_cpf(valor)
+
+    @field_validator("dentista_cro")
+    @classmethod
+    def padronizar_cro(cls, valor):
+        return normalizar_cro(valor)
 
 
 def paciente_para_dict(p):
@@ -138,18 +170,15 @@ def quem_sou_eu(usuario=Depends(usuario_logado)):
 # ---------- Pacientes ----------
 
 @api.post("/pacientes", status_code=201)
-def criar_paciente(dados: PacienteIn):
+def cadastrar_paciente(dados: PacienteIn):
     try:
-        inserir_paciente(dados.nome.title(), dados.cpf, dados.telefone)
-    except sqlite3.IntegrityError:
-        raise HTTPException(409, "Já existe um paciente com esse CPF.")
-    # Devolve o que ficou SALVO (nome já padronizado), e não o que foi enviado
-    return paciente_para_dict(obter_paciente_por_cpf(dados.cpf))
+        paciente = criar_paciente(dados.nome, dados.cpf, dados.telefone)
+    except RegistroDuplicadoError as erro:
+        raise HTTPException(409, str(erro))
+    return paciente_para_dict(paciente)
 
-# A rota da lista vem ANTES da rota com {cpf}. (Elas nem chegariam a colidir, pois
-# "/pacientes" não tem o segundo pedaço do caminho, mas a ordem deixa a intenção clara.)
 @api.get("/pacientes")
-def listar_pacientes_api(
+def listar_pacientes(
     busca: str = Query("", max_length=100),
     limite: int = Query(50, ge=1, le=50),
 ):
@@ -157,7 +186,10 @@ def listar_pacientes_api(
 
 @api.get("/pacientes/{cpf}")
 def obter_paciente(cpf: str):
-    paciente = obter_paciente_por_cpf(cpf)
+    try:
+        paciente = obter_paciente_por_cpf(normalizar_cpf(cpf))
+    except ValueError:          # nem tem formato de CPF: certamente não existe
+        paciente = None
     if paciente is None:
         raise HTTPException(404, "Paciente não encontrado.")
     return paciente_para_dict(paciente)
@@ -166,15 +198,15 @@ def obter_paciente(cpf: str):
 # ---------- Dentistas ----------
 
 @api.post("/dentistas", status_code=201)
-def criar_dentista(dados: DentistaIn):
+def cadastrar_dentista(dados: DentistaIn):
     try:
-        inserir_dentista(dados.nome.title(), dados.cro, dados.especialidade)
-    except sqlite3.IntegrityError:
-        raise HTTPException(409, "Já existe um dentista com esse CRO.")
-    return dentista_para_dict(obter_dentista_por_cro(dados.cro))
+        dentista = criar_dentista(dados.nome, dados.cro, dados.especialidade)
+    except RegistroDuplicadoError as erro:
+        raise HTTPException(409, str(erro))
+    return dentista_para_dict(dentista)
 
 @api.get("/dentistas")
-def listar_dentistas_api(
+def listar_dentistas(
     busca: str = Query("", max_length=100),
     limite: int = Query(50, ge=1, le=50),
 ):
@@ -182,7 +214,7 @@ def listar_dentistas_api(
 
 @api.get("/dentistas/{cro}")
 def obter_dentista(cro: str):
-    dentista = obter_dentista_por_cro(cro)
+    dentista = obter_dentista_por_cro(normalizar_cro(cro))
     if dentista is None:
         raise HTTPException(404, "Dentista não encontrado.")
     return dentista_para_dict(dentista)
@@ -203,9 +235,9 @@ def agendar_consulta(dados: ConsultaIn):
         consulta = agenda.agendar(
             dados.data_hora, dados.motivo, paciente, dentista, dados.duracao_minutos
         )
-    except ConflitoDeHorarioError as erro:
+    except ConflitoDeHorarioError as erro:   # precisa vir antes: também é um ValueError
         raise HTTPException(409, str(erro))
-    except ValueError as erro:          # data no passado
+    except ValueError as erro:               # data no passado ou duração inválida
         raise HTTPException(400, str(erro))
     return consulta_para_dict(consulta)
 
@@ -215,10 +247,13 @@ def listar_consultas(data: date):
 
 @api.patch("/consultas/{consulta_id}/cancelar")
 def cancelar_consulta(consulta_id: int):
-    if buscar_consulta_por_id(consulta_id) is None:
-        raise HTTPException(404, "Consulta não encontrada.")
-    agenda.cancelar(consulta_id)
-    return consulta_para_dict(consulta_para_objeto(buscar_consulta_por_id(consulta_id)))
+    try:
+        consulta = agenda.cancelar(consulta_id)
+    except ConsultaNaoEncontradaError as erro:
+        raise HTTPException(404, str(erro))
+    except ConsultaJaCanceladaError as erro:
+        raise HTTPException(409, str(erro))
+    return consulta_para_dict(consulta)
 
 
 # include_router copia as rotas de `api` para o app; por isso vem depois delas.
