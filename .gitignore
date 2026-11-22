@@ -5,3 +5,4 @@ venv/
 *.db
 .vscode/
 .env
+backups/

@@ -1,6 +1,29 @@
+import os
 import sqlite3
 import unicodedata
 from datetime import datetime
+from pathlib import Path
+
+import config
+
+config.carregar_env()  # permite definir CLINICA_DB no .env
+
+_PASTA_DO_PROJETO = Path(__file__).resolve().parent
+
+
+def caminho_banco():
+    """Caminho do arquivo do banco: variável CLINICA_DB, ou clinica.db na pasta do projeto.
+
+    É lido a cada conexão (e não uma vez só), para que os testes possam apontar
+    cada teste para um banco temporário diferente.
+    Caminho relativo é resolvido a partir da pasta do projeto, e não da pasta
+    onde o comando foi rodado: assim o cron ou um uvicorn iniciado em outro
+    lugar não criam, sem querer, um clinica.db vazio em outra pasta.
+    """
+    caminho = Path(os.environ.get("CLINICA_DB") or "clinica.db")
+    if not caminho.is_absolute():
+        caminho = _PASTA_DO_PROJETO / caminho
+    return str(caminho)
 
 
 def normalizar_texto(texto):
@@ -18,7 +41,7 @@ def normalizar_texto(texto):
 
 
 def criar_conexao():
-    conexao = sqlite3.connect("clinica.db")
+    conexao = sqlite3.connect(caminho_banco())
     conexao.execute("PRAGMA foreign_keys = ON")  # ativa integridade referencial
     # Registra normalizar_texto como função SQL: assim dá para escrever
     # normalizar(nome) dentro de um SELECT (o LIKE do SQLite não ignora acentos).

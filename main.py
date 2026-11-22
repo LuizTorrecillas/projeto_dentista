@@ -1,5 +1,7 @@
 import sqlite3
+from contextlib import asynccontextmanager
 from datetime import date, datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse
@@ -21,8 +23,18 @@ from repositorio import (
 )
 
 config.carregar_env()
-criar_tabelas()
-app = FastAPI(title="Sistema de Agendamento - Clínica Odontológica")
+PASTA_STATIC = Path(__file__).resolve().parent / "static"
+
+
+@asynccontextmanager
+async def ciclo_de_vida(app):
+    # Roda quando o servidor sobe (e não quando o arquivo é importado). Assim os
+    # testes conseguem importar o main sem tocar no banco real.
+    criar_tabelas()
+    yield
+
+
+app = FastAPI(title="Sistema de Agendamento - Clínica Odontológica", lifespan=ciclo_de_vida)
 agenda = Agenda()
 
 # Sessão por cookie assinado: o navegador guarda {"usuario_id": 1}, junto com uma
@@ -128,10 +140,11 @@ def quem_sou_eu(usuario=Depends(usuario_logado)):
 @api.post("/pacientes", status_code=201)
 def criar_paciente(dados: PacienteIn):
     try:
-        novo_id = inserir_paciente(dados.nome.title(), dados.cpf, dados.telefone)
+        inserir_paciente(dados.nome.title(), dados.cpf, dados.telefone)
     except sqlite3.IntegrityError:
         raise HTTPException(409, "Já existe um paciente com esse CPF.")
-    return {"id": novo_id, **dados.model_dump()}
+    # Devolve o que ficou SALVO (nome já padronizado), e não o que foi enviado
+    return paciente_para_dict(obter_paciente_por_cpf(dados.cpf))
 
 # A rota da lista vem ANTES da rota com {cpf}. (Elas nem chegariam a colidir, pois
 # "/pacientes" não tem o segundo pedaço do caminho, mas a ordem deixa a intenção clara.)
@@ -155,10 +168,10 @@ def obter_paciente(cpf: str):
 @api.post("/dentistas", status_code=201)
 def criar_dentista(dados: DentistaIn):
     try:
-        novo_id = inserir_dentista(dados.nome.title(), dados.cro, dados.especialidade)
+        inserir_dentista(dados.nome.title(), dados.cro, dados.especialidade)
     except sqlite3.IntegrityError:
         raise HTTPException(409, "Já existe um dentista com esse CRO.")
-    return {"id": novo_id, **dados.model_dump()}
+    return dentista_para_dict(obter_dentista_por_cro(dados.cro))
 
 @api.get("/dentistas")
 def listar_dentistas_api(
@@ -219,8 +232,8 @@ def pagina_inicial(request: Request):
     # Sem sessão, vai direto para o login (em vez de abrir a agenda vazia e depois redirecionar)
     if autenticacao.obter_usuario(request.session.get("usuario_id")) is None:
         return RedirectResponse("/login.html", status_code=303)
-    return FileResponse("static/index.html")
+    return FileResponse(PASTA_STATIC / "index.html")
 
 # Os arquivos da pasta static/ (login.html, app.js, style.css...) são públicos;
 # os DADOS só saem pelas rotas da API, que exigem login.
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory=PASTA_STATIC, html=True), name="static")

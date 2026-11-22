@@ -130,6 +130,12 @@ class Agenda:
                 f"A duração deve estar entre {self.DURACAO_MIN} e {self.DURACAO_MAX} minutos."
             )
 
+        # Data com fuso horário (ex.: "2027-01-10T14:00-03:00") vira horário local sem
+        # fuso, que é como o banco guarda tudo. Sem isso, comparar com datetime.now()
+        # (que não tem fuso) dava TypeError e a API respondia 500.
+        if data_hora.tzinfo is not None:
+            data_hora = data_hora.astimezone().replace(tzinfo=None)
+
         if data_hora < datetime.now():
             raise ValueError("Não é possível agendar em uma data/hora passada.")
 
