@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 
-import autenticacao
-import banco
+from app.persistencia import banco
+from app.seguranca import autenticacao
 from conftest import SENHA_TESTE
 
 

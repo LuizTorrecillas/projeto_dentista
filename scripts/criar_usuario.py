@@ -1,14 +1,20 @@
 """Cria um usuário para entrar no sistema.
 
-Uso (com o venv ativado, dentro da pasta do projeto):
-    python criar_usuario.py
+Uso (com o venv ativado, na raiz do projeto):
+    python -m scripts.criar_usuario
 """
 import getpass
 import sqlite3
 import sys
+from pathlib import Path
 
-from autenticacao import gerar_hash_senha
-from banco import criar_tabelas, inserir_usuario
+# Permite rodar tanto "python -m scripts.X" quanto "python scripts/X.py":
+# no segundo caso o Python não enxerga a pasta app/, então a adicionamos.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.persistencia.banco import criar_tabelas, inserir_usuario  # noqa: E402
+from app.seguranca.autenticacao import gerar_hash_senha  # noqa: E402
 
 TAMANHO_MINIMO_SENHA = 10
 

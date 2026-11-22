@@ -3,9 +3,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-import backup
-import banco
-import restaurar_backup
+from app.persistencia import banco
+from scripts import backup, restaurar_backup
 
 
 def nomes_pacientes(caminho):

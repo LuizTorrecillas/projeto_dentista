@@ -1,8 +1,8 @@
 """Faz um backup do banco da clínica, seguro mesmo com o servidor rodando.
 
-Uso (dentro da pasta do projeto):
-    .venv/bin/python backup.py               # mantém os 14 mais recentes
-    .venv/bin/python backup.py --manter 30
+Uso (na raiz do projeto):
+    .venv/bin/python -m scripts.backup               # mantém os 14 mais recentes
+    .venv/bin/python -m scripts.backup --manter 30
 
 Por que não usar `cp clinica.db ...`? Se o servidor estiver gravando no exato
 momento da cópia, o cp pode copiar metade antiga e metade nova, gerando um
@@ -12,16 +12,21 @@ forma consistente, coordenando com as travas do próprio banco.
 import argparse
 import os
 import sqlite3
-import sys
 from datetime import datetime
+import sys
 from pathlib import Path
 
-import config
-from banco import caminho_banco
+# Permite rodar tanto "python -m scripts.X" quanto "python scripts/X.py":
+# no segundo caso o Python não enxerga a pasta app/, então a adicionamos.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app import config  # noqa: E402
+from app.persistencia.banco import caminho_banco  # noqa: E402
 
 config.carregar_env()
 
-PASTA_PADRAO = Path(__file__).resolve().parent / "backups"
+PASTA_PADRAO = config.PASTA_DADOS / "backups"
 PREFIXO = "clinica_"          # só arquivos com este prefixo entram no rodízio
 MANTER_PADRAO = 14
 
@@ -72,7 +77,7 @@ def apagar_antigos(pasta, manter):
 
 
 def fazer_backup(origem=None, pasta=PASTA_PADRAO, manter=MANTER_PADRAO, agora=None):
-    """Gera backups/clinica_AAAA-MM-DD_HHMM.db e apaga os mais antigos além de `manter`."""
+    """Gera dados/backups/clinica_AAAA-MM-DD_HHMM.db e apaga os mais antigos além de `manter`."""
     if manter < 1:
         raise ValueError("É preciso manter pelo menos 1 backup.")
     origem = origem or caminho_banco()

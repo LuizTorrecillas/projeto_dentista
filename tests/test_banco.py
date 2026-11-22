@@ -5,10 +5,14 @@ from datetime import datetime, timedelta
 
 import pytest
 
-import banco
-from clinica import Agenda, EstadoConsulta, normalizar_cpf, normalizar_cro, normalizar_nome
-from excecoes import ConsultaJaCanceladaError, ConsultaNaoEncontradaError, RegistroDuplicadoError
-from repositorio import (
+from app.dominio.clinica import (
+    Agenda, EstadoConsulta, normalizar_cpf, normalizar_cro, normalizar_nome,
+)
+from app.dominio.excecoes import (
+    ConsultaJaCanceladaError, ConsultaNaoEncontradaError, RegistroDuplicadoError,
+)
+from app.persistencia import banco
+from app.persistencia.repositorio import (
     criar_paciente, obter_dentista_por_cro, obter_paciente_por_cpf,
 )
 
@@ -125,12 +129,12 @@ def test_agenda_cancelar(paciente_e_dentista):
 def test_api_nao_acessa_o_banco_diretamente():
     """Arquitetura: o main.py só usa o banco para criar as tabelas na inicialização."""
     import ast
-    import main
+    from app import main
     arvore = ast.parse(open(main.__file__, encoding="utf-8").read())
     nomes_importados_do_banco = [
         alias.name
         for no in ast.walk(arvore)
-        if isinstance(no, ast.ImportFrom) and no.module == "banco"
+        if isinstance(no, ast.ImportFrom) and no.module == "app.persistencia.banco"
         for alias in no.names
     ]
     assert nomes_importados_do_banco == ["criar_tabelas"]

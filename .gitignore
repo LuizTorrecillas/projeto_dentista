@@ -5,4 +5,5 @@ venv/
 *.db
 .vscode/
 .env
-backups/
+dados/
+.pytest_cache/

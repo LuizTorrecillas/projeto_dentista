@@ -2,14 +2,14 @@
 import sqlite3
 from datetime import datetime
 
-from banco import (
+from app.persistencia.banco import (
     buscar_paciente_por_id, buscar_paciente_por_cpf,
     buscar_dentista_por_id, buscar_dentista_por_cro,
     inserir_paciente, inserir_dentista,
     listar_pacientes, listar_dentistas,
 )
-from clinica import FORMATO_DATA_HORA, Consulta, Dentista, EstadoConsulta, Paciente
-from excecoes import RegistroDuplicadoError
+from app.dominio.clinica import FORMATO_DATA_HORA, Consulta, Dentista, EstadoConsulta, Paciente
+from app.dominio.excecoes import RegistroDuplicadoError
 
 
 # ---------- Tupla -> objeto ----------

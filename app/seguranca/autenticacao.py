@@ -17,7 +17,7 @@ import secrets
 import threading
 import time
 
-from banco import buscar_usuario_por_nome, buscar_usuario_por_id
+from app.persistencia.banco import buscar_usuario_por_nome, buscar_usuario_por_id
 
 # Parâmetros do scrypt: n = custo (potência de 2), r = tamanho do bloco, p = paralelismo.
 # Com n=2**14 e r=8, cada verificação usa ~16 MB e leva algumas dezenas de milissegundos.

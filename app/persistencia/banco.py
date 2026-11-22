@@ -4,16 +4,15 @@ import unicodedata
 from datetime import datetime
 from pathlib import Path
 
-import config
-from excecoes import ConflitoDeHorarioError  # noqa: F401 (reexportado: banco.ConflitoDeHorarioError)
+from app import config
+from app.dominio.excecoes import ConflitoDeHorarioError  # noqa: F401 (reexportado)
 
 config.carregar_env()  # permite definir CLINICA_DB no .env
 
-_PASTA_DO_PROJETO = Path(__file__).resolve().parent
 
 
 def caminho_banco():
-    """Caminho do arquivo do banco: variável CLINICA_DB, ou clinica.db na pasta do projeto.
+    """Caminho do arquivo do banco: variável CLINICA_DB, ou dados/clinica.db no projeto.
 
     É lido a cada conexão (e não uma vez só), para que os testes possam apontar
     cada teste para um banco temporário diferente.
@@ -21,9 +20,9 @@ def caminho_banco():
     onde o comando foi rodado: assim o cron ou um uvicorn iniciado em outro
     lugar não criam, sem querer, um clinica.db vazio em outra pasta.
     """
-    caminho = Path(os.environ.get("CLINICA_DB") or "clinica.db")
+    caminho = Path(os.environ.get("CLINICA_DB") or config.PASTA_DADOS / "clinica.db")
     if not caminho.is_absolute():
-        caminho = _PASTA_DO_PROJETO / caminho
+        caminho = config.RAIZ_DO_PROJETO / caminho
     return str(caminho)
 
 
@@ -42,7 +41,9 @@ def normalizar_texto(texto):
 
 
 def criar_conexao():
-    conexao = sqlite3.connect(caminho_banco())
+    caminho = caminho_banco()
+    Path(caminho).parent.mkdir(parents=True, exist_ok=True)  # cria dados/ se faltar
+    conexao = sqlite3.connect(caminho)
     conexao.execute("PRAGMA foreign_keys = ON")  # ativa integridade referencial
     # Registra normalizar_texto como função SQL: assim dá para escrever
     # normalizar(nome) dentro de um SELECT (o LIKE do SQLite não ignora acentos).

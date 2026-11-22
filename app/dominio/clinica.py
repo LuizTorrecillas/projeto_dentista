@@ -3,11 +3,11 @@ import re
 from datetime import datetime, timedelta
 from enum import Enum
 
-from banco import (
+from app.persistencia.banco import (
     buscar_consulta_por_id, buscar_consultas_por_data,
     cancelar_consulta, inserir_consulta,
 )
-from excecoes import ConsultaJaCanceladaError, ConsultaNaoEncontradaError
+from app.dominio.excecoes import ConsultaJaCanceladaError, ConsultaNaoEncontradaError
 
 FORMATO_DATA_HORA = "%Y-%m-%d %H:%M:%S"   # como as datas são gravadas no banco
 
@@ -158,13 +158,13 @@ class Agenda:
     # importa este arquivo; importar lá em cima criaria um import circular.
 
     def consultas_do_dia(self, data):
-        from repositorio import consulta_para_objeto
+        from app.persistencia.repositorio import consulta_para_objeto
 
         linhas = buscar_consultas_por_data(data.strftime("%Y-%m-%d"))
         return [consulta_para_objeto(linha) for linha in linhas]
 
     def buscar(self, consulta_id):
-        from repositorio import consulta_para_objeto
+        from app.persistencia.repositorio import consulta_para_objeto
 
         return consulta_para_objeto(buscar_consulta_por_id(consulta_id))
 

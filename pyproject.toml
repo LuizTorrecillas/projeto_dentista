@@ -1,0 +1,4 @@
+# Configuração do pytest: onde estão os testes e de onde importar o pacote app/.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

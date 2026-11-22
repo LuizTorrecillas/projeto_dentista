@@ -6,10 +6,12 @@ o .env não (está no .gitignore). Veja .env.example para a lista de variáveis.
 import os
 from pathlib import Path
 
-_PASTA_DO_PROJETO = Path(__file__).resolve().parent
+# config.py fica em app/; a raiz do projeto é a pasta acima dela.
+RAIZ_DO_PROJETO = Path(__file__).resolve().parents[1]
+PASTA_DADOS = RAIZ_DO_PROJETO / "dados"          # banco e backups (fora do Git)
 
 
-def carregar_env(caminho=_PASTA_DO_PROJETO / ".env"):
+def carregar_env(caminho=RAIZ_DO_PROJETO / ".env"):
     """Lê linhas CHAVE=VALOR do .env para os.environ.
 
     Não sobrescreve variáveis que já existem no ambiente: assim dá para

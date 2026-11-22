@@ -1,3 +1,7 @@
+"""API do sistema (FastAPI). Para rodar, a partir da raiz do projeto:
+
+    uvicorn app.main:app --reload
+"""
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -8,18 +12,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.middleware.sessions import SessionMiddleware
 
-import autenticacao
-import config
-from banco import criar_tabelas
-from clinica import Agenda, normalizar_cpf, normalizar_cro
-from excecoes import (
+from app import config
+from app.dominio.clinica import Agenda, normalizar_cpf, normalizar_cro
+from app.dominio.excecoes import (
     ConflitoDeHorarioError, ConsultaJaCanceladaError,
     ConsultaNaoEncontradaError, RegistroDuplicadoError,
 )
-from repositorio import (
+from app.persistencia.banco import criar_tabelas
+from app.persistencia.repositorio import (
     criar_dentista, criar_paciente, obter_dentista_por_cro,
     obter_dentistas, obter_paciente_por_cpf, obter_pacientes,
 )
+from app.seguranca import autenticacao
 
 config.carregar_env()
 PASTA_STATIC = Path(__file__).resolve().parent / "static"

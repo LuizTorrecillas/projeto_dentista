@@ -4,15 +4,11 @@ Cada teste recebe um banco NOVO e vazio numa pasta temporária (tmp_path),
 apontado pela variável CLINICA_DB. O clinica.db real nunca é usado.
 """
 import os
-import sys
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-
-RAIZ = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(RAIZ))
 
 # Isto roda ANTES de importar o main, porque ele lê essas variáveis ao ser importado.
 # Atribuição direta (e não setdefault): vence o que estiver no seu .env.
@@ -21,8 +17,8 @@ os.environ["CLINICA_COOKIE_SECURE"] = "false"   # o TestClient usa http://
 # Rede de segurança: mesmo um teste que esqueça a fixture cai num banco descartável.
 os.environ["CLINICA_DB"] = str(Path(tempfile.mkdtemp()) / "nunca_usar.db")
 
-import autenticacao  # noqa: E402
-import banco  # noqa: E402
+from app.persistencia import banco  # noqa: E402
+from app.seguranca import autenticacao  # noqa: E402
 
 SENHA_TESTE = "senha-de-teste-123"
 
@@ -50,7 +46,7 @@ def usuario():
 def cliente():
     """Cliente HTTP de teste, SEM login. O `with` dispara o ciclo de vida do app."""
     from fastapi.testclient import TestClient
-    from main import app
+    from app.main import app
     with TestClient(app) as c:
         yield c
 
